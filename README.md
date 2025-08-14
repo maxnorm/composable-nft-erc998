@@ -1,13 +1,36 @@
-# Sample Hardhat Project
+# ERC998
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
+This is a newer top-down implementation of ERC998 for Solidity 0.8.28, based on the [ERC998](https://github.com/ethereum/EIPs/issues/998) specification and the [proposed implementation](https://github.com/mattlockyer/composables-998/blob/master/contracts/ComposableTopDown.sol) from 2018 in Solidity 0.4.24.
 
-Try running some of the following tasks:
+## References
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
+- [Composable NFTs: Unlocking Complex Asset Management](https://medium.com/@m.n.0/composable-nfts-unlocking-complex-asset-management-e258189085d8)
+
+- [EIP-998](https://eips.ethereum.org/EIPS/eip-998)
+- [ERC998 Issue](https://github.com/ethereum/EIPs/issues/998)
+- [ERC998.org](https://erc998.org/)
+
+## Features
+- Hierarchical NFT ownership
+- Child NFT management
+- Safe transfer mechanisms
+- Child contract validation
+
+# Getting Started
+## Prerequisites
+- Node.js >= 16
+- npm or yarn
+- MetaMask wallet
+
+### Smart Contract
+#### 1. Start Local Blockchain & Deploy Contract
+```sh
+npm install
+
+#Run on a separate terminal
 npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.ts
+
+# Deploy contract locally
+npx hardhat run ./scripts/deploy.ts --network localhost
 ```
+
