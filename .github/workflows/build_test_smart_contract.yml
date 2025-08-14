@@ -5,7 +5,6 @@ on:
     branches: [main, dev]
   pull_request:
     paths-ignore:
-      - 'frontend/**'
       - '**.md'
       - 'docs/**'
 
@@ -29,8 +28,8 @@ jobs:
         id: cache-backend-node-modules
         uses: actions/cache@v3
         with:
-          path: 'backend/node_modules'
-          key: backend-node_modules-${{ hashFiles('backend/package-lock.json') }}
+          path: 'node_modules'
+          key: node_modules-${{ hashFiles('package-lock.json') }}
 
       - name: Install Backend Dependencies
         if: steps.cache-backend-node-modules.outputs.cache-hit != 'true'
