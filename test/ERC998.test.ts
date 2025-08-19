@@ -622,8 +622,76 @@ describe("ERC998 contract", function () {
       expect(rootOwner).to.equal(alice.address);
     });
 
-    it("should get correct root owner through 3-level same-contract hierarchy")
-    it("should get correct root owner through 3-level cross-contract hierarchy")
+    it("should get correct root owner through 3-level same-contract hierarchy", async function () {
+      const tokenA = await mintERC998Token(owner.address);
+      const tokenB = await mintERC998Token(owner.address);
+      const tokenC = await mintERC998Token(owner.address); 
+
+      // First transfer: Make tokenA own tokenB
+      const dataB = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [tokenA]);
+      await erc998.connect(owner)["safeTransferFrom(address,address,uint256,bytes)"](
+        owner.address,
+        erc998_address,
+        tokenB,
+        dataB
+      );
+
+      // Second transfer: Make tokenB own tokenC
+      const dataC = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [tokenB]);
+      await erc998.connect(owner)["safeTransferFrom(address,address,uint256,bytes)"](
+        owner.address,
+        erc998_address,
+        tokenC,
+        dataC
+      );
+
+      // Verify the ownership chain
+      expect(await erc998.ownerOf(tokenA)).to.equal(owner.address);
+      expect(await erc998.ownerOf(tokenB)).to.equal(erc998_address);
+      expect(await erc998.ownerOf(tokenC)).to.equal(erc998_address);
+
+      const rootOwnerA = bytes32ToAddress(await erc998.rootOwnerOf(tokenA));
+      const rootOwnerB = bytes32ToAddress(await erc998.rootOwnerOf(tokenB));
+      const rootOwnerC = bytes32ToAddress(await erc998.rootOwnerOf(tokenC));
+
+      expect(rootOwnerA).to.equal(owner.address);
+      expect(rootOwnerB).to.equal(owner.address);
+      expect(rootOwnerC).to.equal(owner.address);
+    })
+    
+    it("should get correct root owner through 3-level cross-contract hierarchy", async function () {
+      const tokenA = await mintERC998Token(owner.address);
+      const tokenB = await mintERC998Token_2(owner.address);
+      const tokenC = await mintERC998Token(owner.address);
+
+      // First transfer: Make tokenA (from contract 1) own tokenB (from contract 2)
+      const dataB = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [tokenA]);
+      await erc998_2.connect(owner)["safeTransferFrom(address,address,uint256,bytes)"](
+        owner.address,
+        erc998_address,
+        tokenB,
+        dataB
+      );
+
+      // Second transfer: Make tokenB (from contract 2) own tokenC (from contract 1)
+      const dataC = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [tokenB]);
+      await erc998.connect(owner)["safeTransferFrom(address,address,uint256,bytes)"](
+        owner.address,
+        erc998_2_address,
+        tokenC,
+        dataC
+      );
+
+      const res = await erc998_2.rootOwnerOf(tokenB);
+      const rootOwnerB = bytes32ToAddress(res);
+
+      expect(rootOwnerB).to.equal(owner.address);
+
+
+      const res2 = await erc998.rootOwnerOf(tokenC);
+      const rootOwnerC = bytes32ToAddress(res2);
+      expect(rootOwnerC).to.equal(owner.address);
+    })
     it("should get direct owner of child in 2-level same-contract hierarchy")
     it("should get direct owner of child in 2-level cross-contract hierarchy")
   });

@@ -12,6 +12,7 @@ import "./interface/IERC998ERC721TopDownEnumerable.sol";
 import "./interface/IERC998ERC20TopDown.sol";
 import "./interface/IERC998ERC20TopDownEnumerable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "hardhat/console.sol";
 
 
 error ERC998Enumerable_InvalidContractIndex(uint256 tokenId, uint256 index);
@@ -136,11 +137,6 @@ abstract contract ERC998 is
 
   /// @notice Get the root owner of a child token
   /// @notice This function traverses the ownership hierarchy to find the ultimate owner
-  /// @dev Assembly is used here for two critical reasons:
-  /// @dev 1. To make a low-level staticcall to check if the current owner implements ERC998
-  /// @dev 2. To efficiently handle the magic value check without additional memory operations
-  /// @dev The assembly block performs a staticcall to the rootOwnerOfChild function and checks its return value
-  /// @dev This is more gas efficient than using a try-catch with a high-level interface call
   /// @dev It's a O(n) operation where n is the depth of the composable
   /// @param childContract The child contract address
   /// @param childTokenId The child token ID
@@ -151,8 +147,8 @@ abstract contract ERC998 is
   ) public view returns (bytes32) {
     address currentOwner;
     uint256 currentTokenId = childTokenId;
+    address currentContract = childContract == address(0) ? address(this) : childContract;
 
-    // Determine initial owner based on whether we're querying a direct token or child token
     if (childContract != address(0)) {
       currentOwner = ERC721(childContract).ownerOf(childTokenId);
       currentTokenId = _childTokenOwner[childContract][childTokenId] == 0 ? childTokenId : _childTokenOwner[childContract][childTokenId];
@@ -160,32 +156,33 @@ abstract contract ERC998 is
       currentOwner = ownerOf(childTokenId);
     }
 
-    // Case 1: Handle self-ownership loop - traverse up hierarchy until we find external owner
-    while (currentOwner == address(this)) {
-      (currentOwner, currentTokenId) = _ownerOfChild(address(this), currentTokenId);
-    }
+    for (uint16 depth = 0; depth < MAX_DEPTH; depth++) {
+      // Try to call ownerOfChild on the current owner to check if it's composable
+      (bool ok, bytes memory ret) = currentOwner.staticcall(
+        abi.encodeWithSelector(
+          IERC998ERC721TopDown.ownerOfChild.selector,
+          currentContract,
+          currentTokenId
+        )
+      );
 
-    // Try to call rootOwnerOfChild on the current owner to check if it's another composable
-    // Function selector for rootOwnerOfChild(address,uint256): 0xed81cdda
-    bytes memory callData = abi.encodeWithSelector(0xed81cdda, address(this), currentTokenId);
-    bool callSuccess;
-    bytes32 result;
-
-    // Assembly block for efficient staticcall and magic value check
-    assembly {
-      callSuccess := staticcall(gas(), currentOwner, add(callData, 0x20), mload(callData), callData, 0x20)
-      if callSuccess {
-        result := mload(callData)
+      // If call fails, currentOwner is EOA or non-composable contract → root reached
+      if (!ok || ret.length < 64) {
+        return _addressToBytes32(currentOwner);
       }
+
+      bytes32 nextOwner;
+      uint256 nextTokenId;
+      assembly { 
+        nextOwner := mload(add(ret, 0x20))
+        nextTokenId := mload(add(ret, 0x40)) 
+      }
+
+      currentContract = currentOwner;
+      currentTokenId = nextTokenId;
+      currentOwner = bytes32ToAddress(nextOwner);
     }
-        
-    // Case 2: If call succeeds and has correct magic value, owner is another composable
-    if (callSuccess && result >> 224 == ERC998_MAGIC_VALUE) {
-      return result;
-    }
-        
-    // Case 3 & 4: Owner is either another contract or a user
-    // Return the magic value combined with the owner address
+
     return _addressToBytes32(currentOwner);
   }
 
@@ -414,23 +411,12 @@ abstract contract ERC998 is
 
     for (uint16 depth = 0; depth < MAX_DEPTH; depth++) {
 
-      // Direct circularity (same contract & tokenId)
       if (currentContract == childContract && currentTokenId == childTokenId) {
         revert ERC998_CircularOwnership();
       }
 
-      // Find who owns (currentContract , currentTokenId)
       address ownerAddr = IERC721(currentContract).ownerOf(currentTokenId);
 
-      // Reached an EOA – this is the root
-      if (ownerAddr.code.length == 0) {
-        if (depth >= MAX_DEPTH - 1) {
-          revert ERC998_TooDeepComposable(parentTokenId, childTokenId, MAX_DEPTH);
-        }
-        return;
-      }
-
-      // Try to climb one level up through ERC-998
       (bool ok, bytes memory ret) = ownerAddr.staticcall(
         abi.encodeWithSelector(
           IERC998ERC721TopDown.ownerOfChild.selector,
