@@ -230,7 +230,7 @@ abstract contract ERC998 is
   /// @param childContract The child contract address
   /// @param childTokenId The child token ID
   /// @param data Additional data to be passed to the child contract's onERC721Received function
-  function safeTransferChild(uint256 fromTokenId, address to, address childContract, uint256 childTokenId, bytes memory data) public virtual nonReentrant {
+  function safeTransferChild(uint256 fromTokenId, address to, address childContract, uint256 childTokenId, bytes memory data) public virtual {
     transferChild(fromTokenId, to, childContract, childTokenId);
     ERC721Utils.checkOnERC721Received(msg.sender, address(this), to, childTokenId, data);
   }

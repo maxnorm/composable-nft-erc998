@@ -465,12 +465,103 @@ describe("ERC998 contract", function () {
     });
 
     describe("Child Operations", function () {
-      it("transferChild should revert when 'to' is not owner of the child token")
-      it("getChild revert when child already owned by parent")
-      it("safeTransferChild should revert when childContract is not ERC721")
-      it("getChild should revert when 'from' is not owner of the child token")
-      it("childExists should return false when token index mapping is zero")
-      it("childContractByIndex(0) should revert after last child contract is removed")
+      it("transferChild should revert when caller is not authorized", async function () {
+        const parentTokenId = await mintERC998Token(owner.address);
+        const childTokenId = await mintERC998Token(owner.address);
+        
+        const data = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [parentTokenId]);
+        await erc998.connect(owner)["safeTransferFrom(address,address,uint256,bytes)"](
+          owner.address,
+          erc998_address,
+          childTokenId,
+          data
+        );
+
+        await expect(
+          erc998.connect(alice).transferChild(
+            parentTokenId,
+            owner.address,
+            erc998_address,
+            childTokenId
+          )
+        ).to.be.revertedWithCustomError(erc998, "ERC998_CallerIsNotOwnerNorApprovedOperator");
+      })
+      it("safeTransferChild should revert when childContract is not ERC721", async function () {
+        const parentTokenId = await mintERC998Token(owner.address);
+        const mockContract = await ethers.getContractFactory("MockContract");
+        const mockContractInstance = await mockContract.deploy();
+
+        await expect(
+          erc998.connect(owner).safeTransferChild(
+            parentTokenId,
+            alice.address,
+            await mockContractInstance.getAddress(),
+            1
+          )
+        ).to.be.revertedWithCustomError(erc998, "ERC998_InvalidFromTokenId");
+      });
+      it("getChild revert when child already owned by parent", async function () {
+        const parentTokenId = await mintERC998Token(owner.address);
+        const childTokenId = await mintERC998Token(owner.address);
+        
+        const data = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [parentTokenId]);
+        await erc998.connect(owner)["safeTransferFrom(address,address,uint256,bytes)"](
+          owner.address,
+          erc998_address,
+          childTokenId,
+          data
+        );
+
+        const anotherParentTokenId = await mintERC998Token(owner.address);
+        await expect(
+          erc998.connect(owner).getChild(
+            owner.address,
+            anotherParentTokenId,
+            erc998_address,
+            childTokenId
+          )
+        ).to.be.revertedWithCustomError(erc998, "ERC998_ChildTokenAlreadyExists");
+      })
+
+      it("getChild should revert when 'from' is not owner of the child token", async function () {
+        const parentTokenId = await mintERC998Token(owner.address);
+        const childTokenId = await mintERC721Token_1(alice.address);
+
+        await expect(
+          erc998.connect(bob).getChild(
+            bob.address,
+            parentTokenId,
+            erc721_1_address,
+            childTokenId
+          )
+        ).to.be.revertedWithCustomError(erc998, "ERC721InsufficientApproval");
+      })
+      it("childExists should return false when token index mapping is zero", async function () {
+        const parentTokenId = await mintERC998Token(owner.address);
+        const childTokenId = await mintERC721Token_1(owner.address);
+
+        expect(await erc998.childExists(parentTokenId, erc721_1_address, childTokenId)).to.be.false;
+      })
+      it("childContractByIndex(0) should revert after last child contract is removed", async function () {
+        const parentTokenId = await mintERC998Token(owner.address);
+        const childTokenId = await mintERC721Token_1(owner.address);
+        
+        const data = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [parentTokenId]);
+        await erc721_1.connect(owner)["safeTransferFrom(address,address,uint256,bytes)"](
+          owner.address,
+          erc998_address,
+          childTokenId,
+          data
+        );
+
+        expect(await erc998.childContractByIndex(parentTokenId, 0)).to.equal(erc721_1_address);
+
+        await erc998.transferChild(parentTokenId, owner.address, erc721_1_address, childTokenId);
+
+        await expect(
+          erc998.childContractByIndex(parentTokenId, 0)
+        ).to.be.revertedWithCustomError(erc998, "ERC998Enumerable_InvalidContractIndex");
+      })
     });
   });
 
@@ -692,8 +783,36 @@ describe("ERC998 contract", function () {
       const rootOwnerC = bytes32ToAddress(res2);
       expect(rootOwnerC).to.equal(owner.address);
     })
-    it("should get direct owner of child in 2-level same-contract hierarchy")
-    it("should get direct owner of child in 2-level cross-contract hierarchy")
+    it("should get direct owner of child in 2-level same-contract hierarchy", async function () {
+      const tokenA = await mintERC998Token(owner.address);
+      const tokenB = await mintERC998Token(owner.address);
+
+      const dataB = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [tokenA]);
+      await erc998.connect(owner)["safeTransferFrom(address,address,uint256,bytes)"](
+        owner.address,
+        erc998_address,
+        tokenB,
+        dataB
+      );
+
+      expect(await erc998.ownerOf(tokenA)).to.equal(owner.address);
+      expect(await erc998.ownerOf(tokenB)).to.equal(erc998_address);
+    })
+    it("should get direct owner of child in 2-level cross-contract hierarchy", async function () {
+      const tokenA = await mintERC998Token(owner.address);
+      const tokenB = await mintERC998Token_2(owner.address);
+
+      const dataB = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [tokenA]);
+      await erc998_2.connect(owner)["safeTransferFrom(address,address,uint256,bytes)"](
+        owner.address,
+        erc998_address,
+        tokenB,
+        dataB
+      );
+
+      expect(await erc998.ownerOf(tokenA)).to.equal(owner.address);
+      expect(await erc998_2.ownerOf(tokenB)).to.equal(erc998_address);
+    })
   });
 
   describe("Complex Scenarios", function () {
@@ -733,9 +852,10 @@ describe("ERC998 contract", function () {
         )).to.be.revertedWithCustomError(erc998, "ERC998_CircularOwnership")
       });
 
+      // ------------------------------------------------------------
       // Commented it in local testing because it's long to run
-      // PLEASE UNCOMMENT FOR THE CI
-      /*
+      // ALWAYS LEAVE UNCOMMENTED FOR THE CI
+      // ------------------------------------------------------------
       it("should create deep nested composables up to MAX_DEPTH", async function () {
         this.timeout(1000000000);
 
@@ -756,6 +876,7 @@ describe("ERC998 contract", function () {
           parentTokenId = childTokenId;
         }
       });
+
 
       it("should revert to create deep nested composables beyond MAX_DEPTH", async function () {
         this.timeout(1000000000);
@@ -788,8 +909,7 @@ describe("ERC998 contract", function () {
           )
         ).to.be.revertedWithCustomError(erc998, "ERC998_TooDeepComposable");
       })
-
-      */
+      // ------------------------------------------------------------
     });
 
     describe("Cross-Contract Composability", function () {
@@ -814,9 +934,11 @@ describe("ERC998 contract", function () {
           )
         ).to.be.revertedWithCustomError(erc998_2, "ERC998_CircularOwnership");
       });
+
+      // ------------------------------------------------------------
       // Commented it in local testing because it's long to run
-      // PLEASE UNCOMMENT FOR THE CI
-      /* 
+      // AlWAYS LEAVE UNCOMMENTED FOR THE CI
+      // ------------------------------------------------------------
       it("should build a deep cross-contract hierarchy up to MAX_DEPTH", async function () {
         this.timeout(1_000_000_000);
 
@@ -906,8 +1028,8 @@ describe("ERC998 contract", function () {
           "ERC998_TooDeepComposable"
         );
       });
-      */
-    });
+      // ------------------------------------------------------------
+    }); 
   });
 
   describe("ERC20 Support", function () {
