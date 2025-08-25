@@ -496,7 +496,7 @@ abstract contract ERC998 is
   }
 
   // ========================================================
-  // IERC998ERC20TopDown Implementation - TODO: Implement Later
+  // IERC998ERC20TopDown Implementation
   // ========================================================
 
   /// @notice Get the balance of an ERC20 contract for a token
