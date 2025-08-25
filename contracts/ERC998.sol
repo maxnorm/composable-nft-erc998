@@ -543,13 +543,13 @@ abstract contract ERC998 is
       uint256 remaining;
 
       bytes4 allowanceSelector = IERC20.allowance.selector;
-      bytes memory calldata = abi.encodeWithSelector(allowanceSelector, _from, msg.sender);
+      bytes memory allowanceCalldata = abi.encodeWithSelector(allowanceSelector, _from, msg.sender);
 
       bool callSuccess;
       assembly {
-        callSuccess := staticcall(gas(), _erc20Contract, add(calldata, 0x20), mload(calldata), calldata, 0x20)
+        callSuccess := staticcall(gas(), _erc20Contract, add(allowanceCalldata, 0x20), mload(allowanceCalldata), allowanceCalldata, 0x20)
         if callSuccess {
-          remaining := mload(calldata)
+          remaining := mload(allowanceCalldata)
         }
       }
       require(callSuccess, ERC998_AllowanceCallFailed(_from, _erc20Contract, _value));
@@ -567,9 +567,11 @@ abstract contract ERC998 is
   /// @param _value The value of the ERC20 token
   /// @param _data Additional data with no specified format
   /// @dev --- This function is not implemented ---
+  /*
   function tokenFallback(address _from, uint256 _value, bytes calldata _data) external {
     revert("Not implemented yet");
   }
+  */
 
   /// @notice Receive an ERC20 token for a token
   /// @param _from The address that sent the ERC20 token
