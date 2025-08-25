@@ -33,7 +33,8 @@ error ERC998_CircularOwnership();
 error ERC998_TooDeepComposable(uint256 parentTokenId, uint256 childTokenId, uint16 maxDepth);
 error ERC998_InvalidERC20Value(uint256 tokenId, address erc20Contract, uint256 value);
 error ERC998_InsufficientERC20Balance(uint256 tokenId, address erc20Contract, uint256 value);
-
+error ERC998_InsufficientAllowance(address from, address erc20Contract, uint256 value);
+error ERC998_AllowanceCallFailed(address from, address erc20Contract, uint256 value);
 
 /// @title ERC998
 /// @author Maxime Normandin <m.normandin@tranqilo.ca>
@@ -529,8 +530,35 @@ abstract contract ERC998 is
     emit TransferERC20(_tokenId, _to, _erc20Contract, _value);
   }
 
-  function getERC20(address _from, uint256 _tokenId, address _erc20Contract, uint256 _value) external {
-    revert("Not implemented");
+  /// @notice Get an ERC20 token from an address
+  /// @param _from The address that owns the ERC20 token
+  /// @param _tokenId The parent token ID
+  /// @param _erc20Contract The ERC20 contract address
+  /// @param _value The value of the ERC20 token
+  /// @dev This function is used to get an ERC20 token from an address
+  /// @dev The caller must be the root owner of the token or an approved operator
+  function getERC20(address _from, uint256 _tokenId, address _erc20Contract, uint256 _value) external nonReentrant {
+    bool allowed = _from == msg.sender;
+    if (!allowed) {
+      uint256 remaining;
+
+      bytes4 allowanceSelector = IERC20.allowance.selector;
+      bytes memory calldata = abi.encodeWithSelector(allowanceSelector, _from, msg.sender);
+
+      bool callSuccess;
+      assembly {
+        callSuccess := staticcall(gas(), _erc20Contract, add(calldata, 0x20), mload(calldata), calldata, 0x20)
+        if callSuccess {
+          remaining := mload(calldata)
+        }
+      }
+      require(callSuccess, ERC998_AllowanceCallFailed(_from, _erc20Contract, _value));
+      require(remaining >= _value, ERC998_InsufficientAllowance(_from, _erc20Contract, _value));
+      allowed = true;
+    }
+    require(allowed, ERC998_InsufficientAllowance(_from, _erc20Contract, _value));
+    _receiveERC20(_from, _tokenId, _erc20Contract, _value);
+    IERC20(_erc20Contract).safeTransferFrom(_from, address(this), _value);
   }
 
   function tokenFallback(address _from, uint256 _value, bytes calldata _data) external {
