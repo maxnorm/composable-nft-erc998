@@ -32,8 +32,8 @@ jobs:
         uses: crytic/slither-action@v0.4.1
         continue-on-error: true  # Don't fail the workflow on warnings
         with:
-          target: 'backend/'
-          slither-config: 'backend/slither.config.json'
+          target: 'contracts/'
+          slither-config: 'slither.config.json'
           sarif: results.sarif
           fail-on: none  # Don't fail on any severity
           solc-version: 0.8.28
