@@ -561,8 +561,14 @@ abstract contract ERC998 is
     IERC20(_erc20Contract).safeTransferFrom(_from, address(this), _value);
   }
 
+  /// @notice Handle the receipt of an ERC223 token
+  /// @notice https://ethereum.org/en/developers/docs/standards/tokens/erc-223/
+  /// @param _from The address that sent the ERC20 token
+  /// @param _value The value of the ERC20 token
+  /// @param _data Additional data with no specified format
+  /// @dev --- This function is not implemented ---
   function tokenFallback(address _from, uint256 _value, bytes calldata _data) external {
-    revert("Not implemented");
+    revert("Not implemented yet");
   }
 
   /// @notice Receive an ERC20 token for a token
