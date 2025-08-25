@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Utils.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interface/IERC998ERC721TopDown.sol";
@@ -31,6 +32,7 @@ error ERC998_FromAddressIsNotOwnerOfChildToken(address from);
 error ERC998_CircularOwnership();
 error ERC998_TooDeepComposable(uint256 parentTokenId, uint256 childTokenId, uint16 maxDepth);
 error ERC998_InvalidERC20Value(uint256 tokenId, address erc20Contract, uint256 value);
+error ERC998_InsufficientERC20Balance(uint256 tokenId, address erc20Contract, uint256 value);
 
 
 /// @title ERC998
@@ -48,6 +50,8 @@ abstract contract ERC998 is
   IERC998ERC20TopDownEnumerable,
   ReentrancyGuard
 {
+  using SafeERC20 for IERC20;
+
   /// @notice ERC998 magic value for root ownership identification
   /// @notice This value was taken from the original implementation
   /// @dev return this.rootOwnerOf.selector ^ this.rootOwnerOfChild.selector ^ this.tokenOwnerOf.selector ^ this.ownerOfChild.selector;
@@ -502,8 +506,27 @@ abstract contract ERC998 is
     return _tokenData[_tokenId].erc20Balances[_erc20Contract];
   }
 
-  function transferERC20(uint256 _tokenId, address _to, address _erc20Contract, uint256 _value) external {
-    revert("Not implemented");
+  /// @notice Transfer an ERC20 token from a token to an address
+  /// @param _tokenId The parent token ID
+  /// @param _to The address to transfer the ERC20 token to
+  /// @param _erc20Contract The ERC20 contract address
+  /// @param _value The value of the ERC20 token
+  /// @dev This function is used to transfer an ERC20 token from a token to an address
+  /// @dev The caller must be the root owner of the token or an approved operator
+  function transferERC20(uint256 _tokenId, address _to, address _erc20Contract, uint256 _value) external nonReentrant {
+    require(_to != address(0), ERC998_InvalidReceiver(_to));
+
+    address rootOwner = bytes32ToAddress(rootOwnerOf(_tokenId));
+    require(
+      rootOwner == msg.sender || 
+      super.isApprovedForAll(rootOwner, msg.sender) ||
+      _rootOwnerTokenApprovals[rootOwner][_tokenId] == msg.sender,
+      ERC998_CallerIsNotOwnerNorApprovedOperator(_tokenId)
+    );
+
+    _removeERC20(_tokenId, _erc20Contract, _value);
+    IERC20(_erc20Contract).safeTransfer(_to, _value);
+    emit TransferERC20(_tokenId, _to, _erc20Contract, _value);
   }
 
   function getERC20(address _from, uint256 _tokenId, address _erc20Contract, uint256 _value) external {
@@ -535,8 +558,34 @@ abstract contract ERC998 is
     emit ReceivedERC20(_from, _tokenId, _erc20Contract, _value);
   }
 
-  function _removeERC20(uint256 tokenId, address _erc20Contract, uint256 _value) internal {
-    
+  /// @notice Remove an ERC20 token from a token
+  /// @param _tokenId The parent token ID
+  /// @param _erc20Contract The ERC20 contract address
+  /// @param _value The value of the ERC20 token
+  /// @dev This function is used to remove an ERC20 token from a token
+  function _removeERC20(uint256 _tokenId, address _erc20Contract, uint256 _value) internal {
+    _requireOwned(_tokenId);
+    require(_value > 0, ERC998_InvalidERC20Value(_tokenId, _erc20Contract, _value));
+
+    uint256 balance = _tokenData[_tokenId].erc20Balances[_erc20Contract];
+    require(balance >= _value, ERC998_InsufficientERC20Balance(_tokenId, _erc20Contract, _value));
+
+    uint256 newBalance = balance - _value;
+    _tokenData[_tokenId].erc20Balances[_erc20Contract] = newBalance;
+
+    if (newBalance == 0) {
+      uint256 lastContractIndex = _tokenData[_tokenId].erc20Contracts.length - 1;
+      address lastContract = _tokenData[_tokenId].erc20Contracts[lastContractIndex];
+
+      if (_erc20Contract != lastContract) {
+        uint256 contractIndex = _tokenData[_tokenId].erc20ContractIndex[_erc20Contract];
+        _tokenData[_tokenId].erc20Contracts[contractIndex] = lastContract;
+        _tokenData[_tokenId].erc20ContractIndex[lastContract] = contractIndex;
+      }
+
+      _tokenData[_tokenId].erc20Contracts.pop();
+      delete _tokenData[_tokenId].erc20ContractIndex[_erc20Contract];
+    }
   }
 
   // ========================================================
