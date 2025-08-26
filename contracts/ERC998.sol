@@ -538,25 +538,13 @@ abstract contract ERC998 is
   /// @dev This function is used to get an ERC20 token from an address
   /// @dev The caller must be the root owner of the token or an approved operator
   function getERC20(address _from, uint256 _tokenId, address _erc20Contract, uint256 _value) external nonReentrant {
-    bool allowed = _from == msg.sender;
-    if (!allowed) {
-      uint256 remaining;
-
-      bytes4 allowanceSelector = IERC20.allowance.selector;
-      bytes memory allowanceCalldata = abi.encodeWithSelector(allowanceSelector, _from, msg.sender);
-
-      bool callSuccess;
-      assembly {
-        callSuccess := staticcall(gas(), _erc20Contract, add(allowanceCalldata, 0x20), mload(allowanceCalldata), allowanceCalldata, 0x20)
-        if callSuccess {
-          remaining := mload(allowanceCalldata)
-        }
-      }
-      require(callSuccess, ERC998_AllowanceCallFailed(_from, _erc20Contract, _value));
-      require(remaining >= _value, ERC998_InsufficientAllowance(_from, _erc20Contract, _value));
-      allowed = true;
-    }
-    require(allowed, ERC998_InsufficientAllowance(_from, _erc20Contract, _value));
+    address rootOwner = bytes32ToAddress(rootOwnerOf(_tokenId));
+    require(
+      rootOwner == msg.sender || 
+      super.isApprovedForAll(rootOwner, msg.sender) ||
+      _rootOwnerTokenApprovals[rootOwner][_tokenId] == msg.sender,
+      ERC998_CallerIsNotOwnerNorApprovedOperator(_tokenId)
+    );
     _receiveERC20(_from, _tokenId, _erc20Contract, _value);
     IERC20(_erc20Contract).safeTransferFrom(_from, address(this), _value);
   }
