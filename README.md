@@ -1,10 +1,11 @@
 # ERC998 - Composable NFTs (cNFTs)
 
 [![Build & Test Smart Contracts](https://github.com/maxnorm/composable-nft-erc998/actions/workflows/build_test_smart_contract.yml/badge.svg)](https://github.com/maxnorm/composable-nft-erc998/actions/workflows/build_test_smart_contract.yml)
-[![Solidity Version](https://img.shields.io/badge/solidity-0.8.28-blue.svg)](https://soliditylang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Hardhat](https://img.shields.io/badge/Hardhat-2.26.1-orange.svg)](https://hardhat.org/)
-[![OpenZeppelin](https://img.shields.io/badge/OpenZeppelin-5.4.0-green.svg)](https://openzeppelin.com/)
+
+[![Solidity Version](https://img.shields.io/badge/solidity-0.8.28-blue.svg)](https://soliditylang.org/)
+[![Hardhat](https://img.shields.io/badge/Hardhat-2.26.1-blue.svg)](https://hardhat.org/)
+[![OpenZeppelin](https://img.shields.io/badge/OpenZeppelin-5.4.0-blue.svg)](https://openzeppelin.com/)
 
 
 ## Overview
