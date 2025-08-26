@@ -1032,6 +1032,58 @@ describe("ERC998 contract", function () {
     }); 
   });
 
+  // ========================================================
+  // ERC20 Support Tests
+  // ========================================================
+
   describe("ERC20 Support", function () {
+    describe("Enumerable & Getter Functions", function () {
+      it('should get the balance of an ERC20 on a token');
+      it('should get the total count of ERC20 contracts for a token');
+      it('should get an ERC20 contract by index');
+    });
+
+    describe("ERC20 Reception", function () {
+      it('should transfer ERC20 tokens from owner to cNFT');
+      it('should transfer ERC20 tokens from approved address to cNFT (allowance)');
+      it('should update token balance when receiving ERC20 tokens');
+      it('should add ERC20 contract to token list when first time');
+      it('should emit ReceivedERC20 event when receiving ERC20 tokens');
+      it('should revert when insufficient allowance');
+      it('should revert when allowance call fails');
+    });
+    
+    describe("ERC20 Transfer", function () {
+      it('should transfer ERC20 tokens from cNFT to external address');
+      it('should update token balance when transferring ERC20 tokens');
+      it('should remove ERC20 contract from token list when balance is 0');
+      it('should emit TransferERC20 event when transferring ERC20 tokens');
+      it('should revert when transferring ERC20 tokens from root owner');
+      it('should revert when transferring ERC20 tokens from non-approved operator');
+      it('should revert when transferring to zero address');
+    });
+
+    describe("ERC20 Edge Cases", function () {
+      it('should handle multiple ERC20 contracts per token');
+      it('should handle multiple ERC20 transfers to same token');
+    });
+
+    describe("ERC20 Contract Management", function () {
+      it('should maintain correct contract indexing when removing tokens');
+      it('should reorder contract list correctly when removing middle items');
+      it('should handle contract list updates properly');
+    });
+
+    describe("Permissions ", function () {
+      it('should respect root owner token approvals');
+      it('should handle approval revocation correctly');
+      it('should work with operator approval changes');
+    });
+
+    describe("Integration Scenarios", function () {
+      it('should handle zero-value transfers gracefully');
+      it('should work with large token amounts');
+      it('should maintain consistency during token ownership transfers');
+    });
   });
 });
