@@ -147,3 +147,4 @@ npx hardhat run scripts/deploy.ts --network localhost
 
 ### License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Authors are not liable for any losses or damages incurred from the use of this code in any way. Use at your own risk!
