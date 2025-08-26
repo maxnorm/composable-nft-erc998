@@ -1339,15 +1339,101 @@ describe("ERC998 contract", function () {
     });
 
     describe("ERC20 Contract Management", function () {
-      it('should maintain correct contract indexing when removing tokens');
-      it('should reorder contract list correctly when removing middle items');
-      it('should handle contract list updates properly');
+      it('should maintain correct contract indexing when managing multiple ERC20 contracts', async function () {
+        const { ERC998TokenId } = await mintFixture();
+        
+        const amount1 = ethers.parseUnits("100", 18);
+        const amount2 = ethers.parseUnits("200", 18);
+        const amount3 = ethers.parseUnits("300", 18);
+        
+        await erc20_1.approve(erc998_address, amount1);
+        await erc998.getERC20(owner.address, ERC998TokenId, erc20_1_address, amount1);
+        
+        await erc20_2.approve(erc998_address, amount2);
+        await erc998.getERC20(owner.address, ERC998TokenId, erc20_2_address, amount2);
+        
+        await erc20_3.approve(erc998_address, amount3);
+        await erc998.getERC20(owner.address, ERC998TokenId, erc20_3_address, amount3);
+        
+        expect(await erc998.totalERC20Contracts(ERC998TokenId)).to.equal(3);
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 0)).to.equal(erc20_1_address);
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 1)).to.equal(erc20_2_address);
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 2)).to.equal(erc20_3_address);
+        
+        // Remove the middle contract (erc20_2) by transferring all its tokens
+        await erc998.transferERC20(ERC998TokenId, alice.address, erc20_2_address, amount2);
+        
+        expect(await erc998.totalERC20Contracts(ERC998TokenId)).to.equal(2);
+        
+        // The last contract (erc20_3) should now be at index 1
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 0)).to.equal(erc20_1_address);
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 1)).to.equal(erc20_3_address);
+        
+        await expect(erc998.erc20ContractByIndex(ERC998TokenId, 2))
+          .to.be.revertedWithCustomError(erc998, "ERC998Enumerable_InvalidContractIndex");
+        
+        // Remove the first contract (erc20_1)
+        await erc998.transferERC20(ERC998TokenId, bob.address, erc20_1_address, amount1);
+        
+        // Verify only erc20_3 remains at index 0
+        expect(await erc998.totalERC20Contracts(ERC998TokenId)).to.equal(1);
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 0)).to.equal(erc20_3_address);
+        
+        await expect(erc998.erc20ContractByIndex(ERC998TokenId, 1))
+          .to.be.revertedWithCustomError(erc998, "ERC998Enumerable_InvalidContractIndex");
+        
+        await erc998.transferERC20(ERC998TokenId, owner.address, erc20_3_address, amount3);
+        
+        expect(await erc998.totalERC20Contracts(ERC998TokenId)).to.equal(0);
+        
+        await expect(erc998.erc20ContractByIndex(ERC998TokenId, 0))
+          .to.be.revertedWithCustomError(erc998, "ERC998Enumerable_InvalidContractIndex");
+      });
     });
 
     describe("Permissions ", function () {
-      it('should respect root owner token approvals');
-      it('should handle approval revocation correctly');
-      it('should work with operator approval changes');
+      it('should respect root owner token approvals', async function () {
+        const { ERC998TokenId } = await mintFixture();
+        const bobBalance = await erc20_1.balanceOf(bob.address);
+        
+        const transferAmount = ethers.parseUnits("100", 18);
+        await erc20_1.approve(erc998_address, transferAmount);
+        await erc998.getERC20(owner.address, ERC998TokenId, erc20_1_address, transferAmount);
+
+        
+        expect(await erc998.getApproved(ERC998TokenId)).to.equal(ethers.ZeroAddress);
+        
+        await erc998.approve(alice.address, ERC998TokenId);
+        expect(await erc998.getApproved(ERC998TokenId)).to.equal(alice.address);
+        
+        // Alice should now be able to transfer ERC20 tokens from the composable token
+        await erc998.connect(alice).transferERC20(ERC998TokenId, bob.address, erc20_1_address, transferAmount);
+        
+        expect(await erc998.balanceOfERC20(ERC998TokenId, erc20_1_address)).to.equal(0);
+        expect(await erc20_1.balanceOf(bob.address)).to.equal(bobBalance + transferAmount);
+        
+        await erc20_1.approve(erc998_address, transferAmount);
+        await erc998.getERC20(owner.address, ERC998TokenId, erc20_1_address, transferAmount);
+
+        // Bob should not be able to transfer without approval
+        await expect(
+          erc998.connect(bob).transferERC20(ERC998TokenId, alice.address, erc20_1_address, transferAmount)
+        ).to.be.revertedWithCustomError(erc998, 'ERC998_CallerIsNotOwnerNorApprovedOperator')
+          .withArgs(ERC998TokenId);
+        
+        await erc998.approve(ethers.ZeroAddress, ERC998TokenId);
+        expect(await erc998.getApproved(ERC998TokenId)).to.equal(ethers.ZeroAddress);
+        
+        // Alice should no longer be able to transfer ERC20 tokens (approval was revoked)
+        await expect(
+          erc998.connect(alice).transferERC20(ERC998TokenId, bob.address, erc20_1_address, transferAmount)
+        ).to.be.revertedWithCustomError(erc998, 'ERC998_CallerIsNotOwnerNorApprovedOperator')
+          .withArgs(ERC998TokenId);
+
+        // Root owner can still transfer ERC20 tokens (they own the token)
+        await erc998.transferERC20(ERC998TokenId, alice.address, erc20_1_address, transferAmount);
+        expect(await erc998.balanceOfERC20(ERC998TokenId, erc20_1_address)).to.equal(0)
+      });
     });
 
     describe("Integration Scenarios", function () {
