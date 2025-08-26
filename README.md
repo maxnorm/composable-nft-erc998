@@ -28,7 +28,7 @@ This implementation is built for Solidity 0.8.28 with modern security practices,
 ![Architecture](./docs/assets/erc998-diagram.png)
 
 ### Core Components
-- **[ERC998.sol](./contracts/ERC998.sol)** - Main composable NFT contract
+- **[ERC998.sol](./contracts/ERC998.sol)**: Main composable NFT contract
 - **[IERC998ERC721TopDown.sol](./contracts/interface/IERC998ERC721TopDown.sol)**: Interface for ERC721 child management
 - **[IERC998ERC20TopDown.sol](./contracts/interface/IERC998ERC20TopDown.sol)**: Interface for ERC20 child management
 - **[IERC998ERC721TopDownEnumerable.sol](./contracts/interface/IERC998ERC721TopDownEnumerable.sol)**: Enumerable interface for ERC721
@@ -37,21 +37,21 @@ This implementation is built for Solidity 0.8.28 with modern security practices,
 ## Features
 
 ### NFT Management
-- **Child Addition/Removal** - Add and remove child NFTs safely
-- **Hierarchical Transfers** - Transfer child NFTs between parent NFTs
-- **Root Owner Tracking** - Efficient root ownership identification
-- **ERC721 Receiver** - Compliant with ERC721 transfer standards
+- **Child Addition/Removal**: Add and remove child NFTs safely
+- **Hierarchical Transfers**: Transfer child NFTs between parent NFTs
+- **Root Owner Tracking**: Efficient root ownership identification
+- **ERC721 Receiver**: Compliant with ERC721 transfer standards
 
 ### Token Support
-- **ERC20 Integration** - Support for ERC20 tokens as child assets
-- **Balance Management** - Track ERC20 balances per NFT
-- **Safe Transfers** - Use OpenZeppelin's SafeERC20 for token operations
+- **ERC20 Integration**: Support for ERC20 tokens as child assets
+- **Balance Management**: Track ERC20 balances per NFT
+- **Safe Transfers**: Use OpenZeppelin's SafeERC20 for token operations
 
 ### Security Features
-- **Reentrancy Protection** - Built with OpenZeppelin's ReentrancyGuard
-- **Safe Transfer Mechanisms** - Prevents accidental loss of child NFTs
-- **Depth Limiting** - Maximum nesting depth of 100 to prevent gas issues
-- **Access Control** - Owner-only operations with proper validation
+- **Reentrancy Protection**: Built with OpenZeppelin's ReentrancyGuard
+- **Safe Transfer Mechanisms**: Prevents accidental loss of child NFTs
+- **Depth Limiting**: Maximum nesting depth of 100 to prevent gas issues
+- **Access Control**: Owner-only operations with proper validation
 
 
 ##  Quick Start
@@ -82,10 +82,10 @@ npx hardhat test
 npx hardhat coverage
 ```
 ### Test Coverage
-- **Deployment** - Contract deployment and initialization
-- **Child Management** - Adding, removing, and transferring child NFTs
-- **ERC20 Integration** - Token balance management and transfers
-- **Security** - Access control and edge case handling
+- **Deployment**: Contract deployment and initialization
+- **Child Management**: Adding, removing, and transferring child NFTs
+- **ERC20 Integration**: Token balance management and transfers
+- **Security**: Access control and edge case handling
 
 ## Usage Examples
 
@@ -120,10 +120,10 @@ npx hardhat run scripts/deploy.ts --network localhost
 ## Security Considerations
 
 ### Built-in Protections
-- **Reentrancy Guard** - Prevents reentrancy attacks
-- **Depth Limiting** - Maximum nesting depth of 100 (this can be increased if needed, but be careful with gas costs for deep hierarchies)
-- **Safe Transfer Standards** - Uses OpenZeppelin's safe transfer functions
-- **Use of OpenZeppelin Contracts** - Battle-tested and audited
+- **Reentrancy Guard**: Prevents reentrancy attacks
+- **Depth Limiting**: Maximum nesting depth of 100 (this can be increased if needed, but be careful with gas costs for deep hierarchies)
+- **Safe Transfer Standards**: Uses OpenZeppelin's safe transfer functions
+- **Use of OpenZeppelin Contracts**: Battle-tested and audited
 
 ## 📖 References & Resources
 - [EIP-998](https://eips.ethereum.org/EIPS/eip-998)
@@ -136,15 +136,18 @@ npx hardhat run scripts/deploy.ts --network localhost
 - [ERC6059 Implementation](https://github.com/ethereum/ERCs/blob/master/assets/erc-6059/contracts/NestableToken.sol)
 - [OpenZeppelin Contracts](https://github.com/OpenZeppelin/openzeppelin-contracts)
 
-
-
-### **Built with ❤️ for the Ethereum family**
-
-### Authors
+## Contributors
 [@maxnorm](https://github.com/maxnorm)
 
 *Special thanks to the original ERC998 & ERC6059 contributors for laying the foundation for composable NFTs.*
 
-### License
+## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-Authors are not liable for any losses or damages incurred from the use of this code in any way. Use at your own risk!
+
+Authors are not liable for any losses or damages incurred from the use of this code in any way. 
+
+#### <b>Use at your own risk!</b>
+
+> ----------------------------------------------
+> ### *Built with ❤️ for the Ethereum family*
+> ----------------------------------------------
