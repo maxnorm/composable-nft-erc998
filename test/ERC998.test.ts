@@ -1045,6 +1045,8 @@ describe("ERC998 contract", function () {
     let erc20_1_address: any;
     let erc20_2: any;
     let erc20_2_address: any;
+    let erc20_3: any;
+    let erc20_3_address: any;
 
     beforeEach(async function () {
       erc20_1 = await ethers.deployContract("SampleERC20");
@@ -1055,6 +1057,10 @@ describe("ERC998 contract", function () {
       await erc20_2.waitForDeployment();
       erc20_2_address = await erc20_2.getAddress();
 
+      erc20_3 = await ethers.deployContract("SampleERC20");
+      await erc20_3.waitForDeployment();
+      erc20_3_address = await erc20_3.getAddress();
+
       await erc20_1.mintTo(owner.address);
       await erc20_1.mintTo(alice.address);
       await erc20_1.mintTo(bob.address);
@@ -1062,6 +1068,10 @@ describe("ERC998 contract", function () {
       await erc20_2.mintTo(owner.address);
       await erc20_2.mintTo(alice.address);
       await erc20_2.mintTo(bob.address);
+
+      await erc20_3.mintTo(owner.address);
+      await erc20_3.mintTo(alice.address);
+      await erc20_3.mintTo(bob.address);
     });
 
     describe("Enumerable & Getter Functions", function () {
@@ -1210,18 +1220,122 @@ describe("ERC998 contract", function () {
     });
     
     describe("ERC20 Transfer", function () {
-      it('should transfer ERC20 tokens from cNFT to external address');
-      it('should update token balance when transferring ERC20 tokens');
-      it('should remove ERC20 contract from token list when balance is 0');
-      it('should emit TransferERC20 event when transferring ERC20 tokens');
-      it('should revert when transferring ERC20 tokens from root owner');
-      it('should revert when transferring ERC20 tokens from non-approved operator');
-      it('should revert when transferring to zero address');
+      let tokenId: any;
+      let transferAmount: any;
+                  
+      beforeEach(async function () {
+        const { ERC998TokenId } = await mintFixture();
+        tokenId = ERC998TokenId;
+        transferAmount = ethers.parseUnits("100", 18);
+        
+        await erc20_1.approve(erc998_address, transferAmount);
+        await erc998.getERC20(owner.address, ERC998TokenId, erc20_1_address, transferAmount);
+
+        const initialTokenBalance = await erc998.balanceOfERC20(tokenId, erc20_1_address);
+        expect(initialTokenBalance).to.equal(transferAmount);
+      });
+
+      it('should transfer ERC20 tokens from cNFT to external address', async function () {
+        const initialAliceBalance = await erc20_1.balanceOf(alice.address);
+        
+        await erc998.transferERC20(tokenId, alice.address, erc20_1_address, transferAmount);
+        
+        const finalTokenBalance = await erc998.balanceOfERC20(tokenId, erc20_1_address);
+        const finalAliceBalance = await erc20_1.balanceOf(alice.address);
+        
+        expect(finalTokenBalance).to.equal(0);
+        expect(finalAliceBalance).to.equal(initialAliceBalance + transferAmount);
+        
+        expect(await erc998.totalERC20Contracts(tokenId)).to.equal(0);
+      });
+
+      it('should update token balance when transferring ERC20 tokens', async function () {        
+        const partialTransferAmount = ethers.parseUnits("30", 18);
+        const remainingAmount = transferAmount - partialTransferAmount;
+        
+        await erc998.transferERC20(tokenId, alice.address, erc20_1_address, partialTransferAmount);
+        
+        const updatedTokenBalance = await erc998.balanceOfERC20(tokenId, erc20_1_address);
+        expect(updatedTokenBalance).to.equal(remainingAmount);
+        
+        expect(await erc998.totalERC20Contracts(tokenId)).to.equal(1);
+        expect(await erc998.erc20ContractByIndex(tokenId, 0)).to.equal(erc20_1_address);
+        
+        await erc998.transferERC20(tokenId, bob.address, erc20_1_address, remainingAmount);
+      });
+
+      it('should remove ERC20 contract from token list when balance is 0', async function () {
+        expect(await erc998.totalERC20Contracts(tokenId)).to.equal(1);
+        expect(await erc998.erc20ContractByIndex(tokenId, 0)).to.equal(erc20_1_address);
+        
+        await erc998.transferERC20(tokenId, alice.address, erc20_1_address, transferAmount);
+        
+        const finalBalance = await erc998.balanceOfERC20(tokenId, erc20_1_address);
+        expect(finalBalance).to.equal(0);
+        
+        expect(await erc998.totalERC20Contracts(tokenId)).to.equal(0);
+        
+        await expect(erc998.erc20ContractByIndex(tokenId, 0))
+          .to.be.revertedWithCustomError(erc998, "ERC998Enumerable_InvalidContractIndex");
+      });
+
+      it('should emit TransferERC20 event when transferring ERC20 tokens', async function () {
+        await expect(erc998.transferERC20(tokenId, alice.address, erc20_1_address, transferAmount))
+          .to.emit(erc998, 'TransferERC20')
+          .withArgs(tokenId, alice.address, erc20_1_address, transferAmount);
+      });
+
+      it('should revert when transferring ERC20 tokens from non-approved operator', async function () {
+        await expect(erc998.connect(alice).transferERC20(tokenId, bob.address, erc20_1_address, transferAmount))
+          .to.be.revertedWithCustomError(erc998, 'ERC998_CallerIsNotOwnerNorApprovedOperator')
+          .withArgs(tokenId);
+      });
+
+      it('should revert when transferring to zero address', async function () {
+        await expect(erc998.transferERC20(tokenId, ethers.ZeroAddress, erc20_1_address, transferAmount))
+          .to.be.revertedWithCustomError(erc998, "ERC998_InvalidReceiver");
+      });
     });
 
     describe("ERC20 Edge Cases", function () {
-      it('should handle multiple ERC20 contracts per token');
-      it('should handle multiple ERC20 transfers to same token');
+      it('should handle multiple ERC20 contracts per token', async function () {
+        const { ERC998TokenId } = await mintFixture();
+        const transferAmount1 = ethers.parseUnits("100", 18);
+        const transferAmount2 = ethers.parseUnits("50", 18);
+        const transferAmount3 = ethers.parseUnits("75", 18);
+        
+        await erc20_1.approve(erc998_address, transferAmount1);
+        await erc998.getERC20(owner.address, ERC998TokenId, erc20_1_address, transferAmount1);
+        
+        await erc20_2.approve(erc998_address, transferAmount2);
+        await erc998.getERC20(owner.address, ERC998TokenId, erc20_2_address, transferAmount2);
+        
+        await erc20_3.approve(erc998_address, transferAmount3);
+        await erc998.getERC20(owner.address, ERC998TokenId, erc20_3_address, transferAmount3);
+        
+        expect(await erc998.totalERC20Contracts(ERC998TokenId)).to.equal(3);
+        
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 0)).to.equal(erc20_1_address);
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 1)).to.equal(erc20_2_address);
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 2)).to.equal(erc20_3_address);
+        
+        expect(await erc998.balanceOfERC20(ERC998TokenId, erc20_1_address)).to.equal(transferAmount1);
+        expect(await erc998.balanceOfERC20(ERC998TokenId, erc20_2_address)).to.equal(transferAmount2);
+        expect(await erc998.balanceOfERC20(ERC998TokenId, erc20_3_address)).to.equal(transferAmount3);
+        
+        const partialAmount = ethers.parseUnits("25", 18);
+        await erc998.transferERC20(ERC998TokenId, alice.address, erc20_1_address, partialAmount);
+        
+        expect(await erc998.totalERC20Contracts(ERC998TokenId)).to.equal(3);
+        expect(await erc998.balanceOfERC20(ERC998TokenId, erc20_1_address)).to.equal(transferAmount1 - partialAmount);
+        
+        await erc998.transferERC20(ERC998TokenId, bob.address, erc20_2_address, transferAmount2);
+        
+        expect(await erc998.totalERC20Contracts(ERC998TokenId)).to.equal(2);
+        
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 0)).to.equal(erc20_1_address);
+        expect(await erc998.erc20ContractByIndex(ERC998TokenId, 1)).to.equal(erc20_3_address);
+      });
     });
 
     describe("ERC20 Contract Management", function () {
