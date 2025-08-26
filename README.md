@@ -140,5 +140,10 @@ npx hardhat run scripts/deploy.ts --network localhost
 
 ### **Built with ❤️ for the Ethereum family**
 
+### Authors
+[@maxnorm](https://github.com/maxnorm)
 
 *Special thanks to the original ERC998 & ERC6059 contributors for laying the foundation for composable NFTs.*
+
+### License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
