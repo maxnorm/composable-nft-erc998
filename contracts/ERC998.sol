@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Utils.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./interface/IERC998ERC721TopDown.sol";
@@ -30,7 +31,10 @@ error ERC998_InvalidFromAddress(address from);
 error ERC998_FromAddressIsNotOwnerOfChildToken(address from);
 error ERC998_CircularOwnership();
 error ERC998_TooDeepComposable(uint256 parentTokenId, uint256 childTokenId, uint16 maxDepth);
-
+error ERC998_InvalidERC20Value(uint256 tokenId, address erc20Contract, uint256 value);
+error ERC998_InsufficientERC20Balance(uint256 tokenId, address erc20Contract, uint256 value);
+error ERC998_InsufficientAllowance(address from, address erc20Contract, uint256 value);
+error ERC998_AllowanceCallFailed(address from, address erc20Contract, uint256 value);
 
 /// @title ERC998
 /// @author Maxime Normandin <m.normandin@tranqilo.ca>
@@ -43,8 +47,12 @@ abstract contract ERC998 is
   IERC721Receiver,
   IERC998ERC721TopDown, 
   IERC998ERC721TopDownEnumerable,
+  IERC998ERC20TopDown,
+  IERC998ERC20TopDownEnumerable,
   ReentrancyGuard
 {
+  using SafeERC20 for IERC20;
+
   /// @notice ERC998 magic value for root ownership identification
   /// @notice This value was taken from the original implementation
   /// @dev return this.rootOwnerOf.selector ^ this.rootOwnerOfChild.selector ^ this.tokenOwnerOf.selector ^ this.ownerOfChild.selector;
@@ -58,7 +66,7 @@ abstract contract ERC998 is
   /// @dev If a composable becomes too deep, it would hit gas limit and make the composable unusable
   uint16 public constant MAX_DEPTH = 100;
 
-  /// @notice Structure to hold all composable data for a token
+  /// @notice Structure to hold data for a token
   struct TokenData {
     /// @notice ERC721 Management
     address[] erc721Contracts;
@@ -66,12 +74,10 @@ abstract contract ERC998 is
     mapping(address erc721Contract => uint256[] childTokenIds) erc721ChildTokenIds;
     mapping(address erc721Contract => mapping(uint256 childTokenId => uint256 index)) erc721ChildTokenIndex;
 
-    /**
-    // TODO: Add ERC20 support later
     /// @notice ERC20 Management
     address[] erc20Contracts;
     mapping(address erc20Contract => uint256 balance) erc20Balances;
-    */
+    mapping(address erc20Contract => uint256 index) erc20ContractIndex;
   }
 
   /// @notice Mapping from token ID to its composable data
@@ -490,21 +496,126 @@ abstract contract ERC998 is
   }
 
   // ========================================================
-  // IERC998ERC20TopDown Implementation - TODO: Implement Later
+  // IERC998ERC20TopDown Implementation
   // ========================================================
 
-  /**
-  function tokenFallback(address _from, uint256 _value, bytes calldata _data) external;
-  function balanceOfERC20(uint256 _tokenId, address __erc20Contract) external view returns (uint256);
-  function transferERC20(uint256 _tokenId, address _to, address _erc20Contract, uint256 _value) external;
-  function getERC20(address _from, uint256 _tokenId, address _erc20Contract, uint256 _value) external;
+  /// @notice Get the balance of an ERC20 contract for a token
+  /// @param _tokenId The parent token ID
+  /// @param _erc20Contract The ERC20 contract address
+  /// @return The balance of the ERC20 contract
+  function balanceOfERC20(uint256 _tokenId, address _erc20Contract) external view returns (uint256) {
+    return _tokenData[_tokenId].erc20Balances[_erc20Contract];
+  }
+
+  /// @notice Transfer an ERC20 token from a token to an address
+  /// @param _tokenId The parent token ID
+  /// @param _to The address to transfer the ERC20 token to
+  /// @param _erc20Contract The ERC20 contract address
+  /// @param _value The value of the ERC20 token
+  /// @dev This function is used to transfer an ERC20 token from a token to an address
+  /// @dev The caller must be the root owner of the token or an approved operator
+  function transferERC20(uint256 _tokenId, address _to, address _erc20Contract, uint256 _value) external nonReentrant {
+    require(_to != address(0), ERC998_InvalidReceiver(_to));
+
+    address rootOwner = bytes32ToAddress(rootOwnerOf(_tokenId));
+    require(
+      rootOwner == msg.sender || 
+      super.isApprovedForAll(rootOwner, msg.sender) ||
+      _rootOwnerTokenApprovals[rootOwner][_tokenId] == msg.sender,
+      ERC998_CallerIsNotOwnerNorApprovedOperator(_tokenId)
+    );
+
+    _removeERC20(_tokenId, _erc20Contract, _value);
+    IERC20(_erc20Contract).safeTransfer(_to, _value);
+    emit TransferERC20(_tokenId, _to, _erc20Contract, _value);
+  }
+
+  /// @notice Get an ERC20 token from an address
+  /// @param _from The address that owns the ERC20 token
+  /// @param _tokenId The parent token ID
+  /// @param _erc20Contract The ERC20 contract address
+  /// @param _value The value of the ERC20 token
+  /// @dev This function is used to get an ERC20 token from an address
+  /// @dev The caller must be the root owner of the token or an approved operator
+  function getERC20(address _from, uint256 _tokenId, address _erc20Contract, uint256 _value) external nonReentrant {
+    address rootOwner = bytes32ToAddress(rootOwnerOf(_tokenId));
+    require(
+      rootOwner == msg.sender || 
+      super.isApprovedForAll(rootOwner, msg.sender) ||
+      _rootOwnerTokenApprovals[rootOwner][_tokenId] == msg.sender,
+      ERC998_CallerIsNotOwnerNorApprovedOperator(_tokenId)
+    );
+    _receiveERC20(_from, _tokenId, _erc20Contract, _value);
+    IERC20(_erc20Contract).safeTransferFrom(_from, address(this), _value);
+  }
+
+  /// @notice Handle the receipt of an ERC223 token
+  /// @notice https://ethereum.org/en/developers/docs/standards/tokens/erc-223/
+  /// @param _from The address that sent the ERC20 token
+  /// @param _value The value of the ERC20 token
+  /// @param _data Additional data with no specified format
+  /// @dev --- This function is not implemented ---
+  /*
+  function tokenFallback(address _from, uint256 _value, bytes calldata _data) external {
+    revert("Not implemented yet");
+  }
   */
 
+  /// @notice Receive an ERC20 token for a token
+  /// @param _from The address that sent the ERC20 token
+  /// @param _tokenId The parent token ID
+  /// @param _erc20Contract The ERC20 contract address
+  /// @param _value The value of the ERC20 token
+  /// @dev This function is used to receive an ERC20 token for a token
+  function _receiveERC20(address _from, uint256 _tokenId, address _erc20Contract, uint256 _value) internal {
+    _requireOwned(_tokenId);
+    require(_value > 0, ERC998_InvalidERC20Value(_tokenId, _erc20Contract, _value));
+
+    uint256 erc20Balance = _tokenData[_tokenId].erc20Balances[_erc20Contract];
+
+    if (erc20Balance == 0) {
+      _tokenData[_tokenId].erc20ContractIndex[_erc20Contract] = _tokenData[_tokenId].erc20Contracts.length;
+      _tokenData[_tokenId].erc20Contracts.push(_erc20Contract);
+    }
+
+    _tokenData[_tokenId].erc20Balances[_erc20Contract] += _value;
+    emit ReceivedERC20(_from, _tokenId, _erc20Contract, _value);
+  }
+
+  /// @notice Remove an ERC20 token from a token
+  /// @param _tokenId The parent token ID
+  /// @param _erc20Contract The ERC20 contract address
+  /// @param _value The value of the ERC20 token
+  /// @dev This function is used to remove an ERC20 token from a token
+  function _removeERC20(uint256 _tokenId, address _erc20Contract, uint256 _value) internal {
+    _requireOwned(_tokenId);
+    require(_value > 0, ERC998_InvalidERC20Value(_tokenId, _erc20Contract, _value));
+
+    uint256 balance = _tokenData[_tokenId].erc20Balances[_erc20Contract];
+    require(balance >= _value, ERC998_InsufficientERC20Balance(_tokenId, _erc20Contract, _value));
+
+    uint256 newBalance = balance - _value;
+    _tokenData[_tokenId].erc20Balances[_erc20Contract] = newBalance;
+
+    if (newBalance == 0) {
+      uint256 lastContractIndex = _tokenData[_tokenId].erc20Contracts.length - 1;
+      address lastContract = _tokenData[_tokenId].erc20Contracts[lastContractIndex];
+
+      if (_erc20Contract != lastContract) {
+        uint256 contractIndex = _tokenData[_tokenId].erc20ContractIndex[_erc20Contract];
+        _tokenData[_tokenId].erc20Contracts[contractIndex] = lastContract;
+        _tokenData[_tokenId].erc20ContractIndex[lastContract] = contractIndex;
+      }
+
+      _tokenData[_tokenId].erc20Contracts.pop();
+      delete _tokenData[_tokenId].erc20ContractIndex[_erc20Contract];
+    }
+  }
+
   // ========================================================
-  // IERC998ERC20TopDownEnumerable Implementation - TODO: Implement Later
+  // IERC998ERC20TopDownEnumerable Implementation
   // ========================================================
 
-  /**
   /// @notice Get the total number of ERC20 contracts for a token
   /// @param _tokenId The parent token ID
   /// @return The number of ERC20 contracts
@@ -512,8 +623,14 @@ abstract contract ERC998 is
     return _tokenData[_tokenId].erc20Contracts.length;
   }
 
-  function erc20ContractByIndex(uint256 _tokenId, uint256 _index) external view returns (address);
-  */
+  /// @notice Get the ERC20 contract at a specific index
+  /// @param _tokenId The parent token ID
+  /// @param _index The index of the ERC20 contract
+  /// @return The ERC20 contract address
+  function erc20ContractByIndex(uint256 _tokenId, uint256 _index) external view returns (address) {
+    require(_index < _tokenData[_tokenId].erc20Contracts.length, ERC998Enumerable_InvalidContractIndex(_tokenId, _index));
+    return _tokenData[_tokenId].erc20Contracts[_index];
+  }
 
   // ========================================================
   // IERC165 Implementation 
