@@ -389,7 +389,7 @@ abstract contract ERC998 is
       address lastContract = tokenData.erc721Contracts[lastContractIndex];
 
       if (childContract != lastContract) {
-        tokenData.erc721Contracts[contractIndex] = lastContract;
+        tokenData.erc721Contracts[contractIndex - 1] = lastContract;
         tokenData.erc721childContractIndex[lastContract] = contractIndex;
       }
 
