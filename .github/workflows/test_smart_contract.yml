@@ -1,0 +1,40 @@
+name: check
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  build:
+    name: test contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Use Node.js 22.19.0(LTS)
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22.19.0
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Hardhat
+        run: npm install hardhat
+
+      - name: Clean Hardhat cache
+        run: npx hardhat clean
+
+      - name: Compile contracts
+        run: npx hardhat compile
+
+      - name: Run tests
+        run: npx hardhat test
+
+      - name: Run coverage
+        run: npx hardhat coverage
