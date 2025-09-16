@@ -178,8 +178,7 @@ describe("ERC998 contract", function () {
         });
   
         it("should have correct root owner", async function () {
-          const [rootOwnerBytes32, parentTokenId] = await erc998.ownerOfChild(erc721_1_address, ERC721TokenId_1);
-          const rootOwner = bytes32ToAddress(rootOwnerBytes32);
+          const [rootOwner, parentTokenId] = await erc998.ownerOfChild(erc721_1_address, ERC721TokenId_1);
           expect(rootOwner).to.equal(owner.address);
           expect(parentTokenId).to.equal(ERC998TokenId);
         });
@@ -217,12 +216,10 @@ describe("ERC998 contract", function () {
           await erc998.transferFrom(owner.address, bob.address, ERC998TokenId);
           expect(await erc998.ownerOf(ERC998TokenId)).to.equal(bob.address);
   
-          const rootOwnerBytes32 = await erc998.rootOwnerOf(ERC998TokenId);
-          const rootOwner = bytes32ToAddress(rootOwnerBytes32);
+          const rootOwner = await erc998.rootOwnerOf(ERC998TokenId);
           expect(rootOwner).to.equal(bob.address);
   
-          const [childRootOwnerBytes32] = await erc998.ownerOfChild(erc721_1_address, ERC721TokenId_1);
-          const childRootOwner = bytes32ToAddress(childRootOwnerBytes32);
+          const [childRootOwner] = await erc998.ownerOfChild(erc721_1_address, ERC721TokenId_1);
           expect(childRootOwner).to.equal(bob.address);
         });
   
@@ -301,8 +298,7 @@ describe("ERC998 contract", function () {
         expect(await erc998.totalChildContracts(ERC998TokenId_2)).to.equal(1);
         expect(await erc998.childExists(ERC998TokenId_2, erc721_2_address, ERC721TokenId_2)).to.be.true;
   
-        const [rootOwnerBytes32] = await erc998.ownerOfChild(erc721_2_address, ERC721TokenId_2);
-        const rootOwner = bytes32ToAddress(rootOwnerBytes32);
+        const [rootOwner] = await erc998.ownerOfChild(erc721_2_address, ERC721TokenId_2);
         expect(rootOwner).to.equal(alice.address);
       });
       it("should verify child exists in second composable", async function () {
@@ -324,8 +320,7 @@ describe("ERC998 contract", function () {
         expect(await erc998.childExists(ERC998TokenId_2, erc721_2_address, ERC721TokenId_2)).to.be.false;
         expect(await erc998.childExists(ERC998TokenId, erc721_2_address, ERC721TokenId_2)).to.be.true;
   
-        const [rootOwnerBytes32] = await erc998.ownerOfChild(erc721_2_address, ERC721TokenId_2);
-        const rootOwner = bytes32ToAddress(rootOwnerBytes32);
+        const [rootOwner] = await erc998.ownerOfChild(erc721_2_address, ERC721TokenId_2);
         expect(rootOwner).to.equal(owner.address);
       });
       it("should verify child contract arrays are updated", async function () {
@@ -358,8 +353,7 @@ describe("ERC998 contract", function () {
           erc721_2_address,     // child contract
           ERC721TokenId_2,      // child token
         );
-        const [rootOwnerBytes32] = await erc998.ownerOfChild(erc721_2_address, ERC721TokenId_2);
-        const rootOwner = bytes32ToAddress(rootOwnerBytes32);
+        const [rootOwner] = await erc998.ownerOfChild(erc721_2_address, ERC721TokenId_2);
         expect(rootOwner).to.equal(owner.address);
       });
     });
@@ -381,8 +375,7 @@ describe("ERC998 contract", function () {
         
         expect(await erc721_1.ownerOf(ERC721TokenId_1)).to.equal(erc998_address);
         
-        const [rootOwnerBytes32] = await erc998.ownerOfChild(erc721_1_address, ERC721TokenId_1);
-        const rootOwner = bytes32ToAddress(rootOwnerBytes32);
+        const [rootOwner] = await erc998.ownerOfChild(erc721_1_address, ERC721TokenId_1);
         expect(rootOwner).to.equal(owner.address);
       });
     });
@@ -693,8 +686,7 @@ describe("ERC998 contract", function () {
       it("should get correct root owner", async function () {
         const { ERC998TokenId, ERC721TokenId_1, ERC721TokenId_2, ERC998TokenId_2 } = await mint2SetsOfTokens();
   
-        let rootOwnerBytes = await erc998.rootOwnerOf(ERC998TokenId);
-        let rootOwner = bytes32ToAddress(rootOwnerBytes);
+        let rootOwner = await erc998.rootOwnerOf(ERC998TokenId);
         expect(rootOwner).to.equal(owner.address);
   
         const data = ethers.AbiCoder.defaultAbiCoder().encode(['uint256'], [ERC998TokenId]);
@@ -713,16 +705,13 @@ describe("ERC998 contract", function () {
           data2
         );
   
-        rootOwnerBytes = await erc998.rootOwnerOf(ERC998TokenId_2);
-        rootOwner = bytes32ToAddress(rootOwnerBytes);
+        rootOwner = await erc998.rootOwnerOf(ERC998TokenId_2);
         expect(rootOwner).to.equal(alice.address);
   
-        rootOwnerBytes = await erc998.rootOwnerOf(ERC998TokenId);
-        rootOwner = bytes32ToAddress(rootOwnerBytes);
+        rootOwner = await erc998.rootOwnerOf(ERC998TokenId);
         expect(rootOwner).to.equal(alice.address);
   
-        rootOwnerBytes = await erc998.rootOwnerOfChild(erc721_1_address, ERC721TokenId_1);
-        rootOwner = bytes32ToAddress(rootOwnerBytes);
+        rootOwner = await erc998.rootOwnerOfChild(erc721_1_address, ERC721TokenId_1);
         expect(rootOwner).to.equal(alice.address);
       });
   
@@ -754,9 +743,9 @@ describe("ERC998 contract", function () {
         expect(await erc998.ownerOf(tokenB)).to.equal(erc998_address);
         expect(await erc998.ownerOf(tokenC)).to.equal(erc998_address);
   
-        const rootOwnerA = bytes32ToAddress(await erc998.rootOwnerOf(tokenA));
-        const rootOwnerB = bytes32ToAddress(await erc998.rootOwnerOf(tokenB));
-        const rootOwnerC = bytes32ToAddress(await erc998.rootOwnerOf(tokenC));
+        const rootOwnerA = await erc998.rootOwnerOf(tokenA);
+        const rootOwnerB = await erc998.rootOwnerOf(tokenB);
+        const rootOwnerC = await erc998.rootOwnerOf(tokenC);
   
         expect(rootOwnerA).to.equal(owner.address);
         expect(rootOwnerB).to.equal(owner.address);
@@ -786,14 +775,12 @@ describe("ERC998 contract", function () {
           dataC
         );
   
-        const res = await erc998_2.rootOwnerOf(tokenB);
-        const rootOwnerB = bytes32ToAddress(res);
+        const rootOwnerB = await erc998_2.rootOwnerOf(tokenB);
   
         expect(rootOwnerB).to.equal(owner.address);
   
   
-        const res2 = await erc998.rootOwnerOf(tokenC);
-        const rootOwnerC = bytes32ToAddress(res2);
+        const rootOwnerC = await erc998.rootOwnerOf(tokenC);
         expect(rootOwnerC).to.equal(owner.address);
       })
       it("should get direct owner of child in 2-level same-contract hierarchy", async function () {

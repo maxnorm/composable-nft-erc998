@@ -1,6 +1,6 @@
 # ERC998 - Composable NFTs (cNFTs)
 
-[![Build & Test Smart Contracts](https://github.com/maxnorm/composable-nft-erc998/actions/workflows/build_test_smart_contract.yml/badge.svg)](https://github.com/maxnorm/composable-nft-erc998/actions/workflows/build_test_smart_contract.yml)
+[![Test Smart Contracts](https://github.com/maxnorm/composable-nft-erc998/actions/workflows/test_smart_contract.yml/badge.svg)](https://github.com/maxnorm/composable-nft-erc998/actions/workflows/test_smart_contract.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 [![Solidity Version](https://img.shields.io/badge/solidity-0.8.28-blue.svg)](https://soliditylang.org/)
