@@ -23,6 +23,7 @@ This implementation is built for Solidity 0.8.28 with modern security practices,
 
 ### Articles
 - [Composable NFTs: Unlocking Complex Asset Management](https://medium.com/@m.n.0/composable-nfts-unlocking-complex-asset-management-e258189085d8)
+- [A Developer’s Guide to ERC998](https://medium.com/@m.n.0/a-developers-guide-to-erc998-e46b7c90217d)
 
 ##  Architecture
 
