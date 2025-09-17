@@ -55,8 +55,12 @@ This implementation is built for Solidity 0.8.28 with modern security practices,
 - **Depth Limiting**: Maximum nesting depth of 100 to prevent gas issues
 - **Access Control**: Owner-only operations with proper validation
 
+## Demo
+Curious how composability works in practice? This demo brings it to life by modeling a car as a structured digital asset using the ERC‑998 standard.
 
-##  Quick Start
+[Try the simple demo now](https://github.com/maxnorm/erc998-demo-car)
+
+## Quick Start
 
 ### Prerequisites
 - Node.js >= 16
